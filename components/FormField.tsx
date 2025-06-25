@@ -2,6 +2,8 @@ import React from 'react'
 import { FormField as UIFormField, FormItem, FormLabel, FormControl, FormDescription, FormMessage } from "@/components/ui/form"
 import { Input } from "@/components/ui/input"
 import {Controller, FieldValues, Path, Control} from "react-hook-form"
+
+
 interface FormFieldProps<T extends FieldValues> {
         control: Control<T>;
         name: Path<T>;
@@ -19,7 +21,7 @@ const FormField = <T extends FieldValues>({ control, name, label, placeholder, t
                         type={type} 
                         {...field} 
                         />
-                    </FormControl>
+                    </FormControl>  
                     <FormMessage />
                     </FormItem>
                 )}

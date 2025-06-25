@@ -6,15 +6,13 @@ import { useForm } from "react-hook-form"
 import { toast } from "sonner"
 import { useRouter } from "next/navigation"
 import { z } from "zod"
-import { Button } from "@/components/ui/button"
-import {Form,} from "@/components/ui/form"
-import { Input } from "@/components/ui/input"
+import { Form } from "@/components/ui/form"
 import FormField from "@/components/FormField"
-
-
-interface AuthFormProps {
-  type: 'sign-in' | 'sign-up'
-}
+import { createUserWithEmailAndPassword } from "firebase/auth"
+import { auth } from "@/firebase/client"
+import { signUp } from "@/lib/actions/auth.action"
+import { signInWithEmailAndPassword } from "firebase/auth"
+import { signIn } from "@/lib/actions/auth.action"
 const authFormSchema = (type: FormType) => 
   {
     return z.object({
@@ -41,17 +39,37 @@ const AuthForm = ({ type }:{type: FormType}) => {
   console.log("Form errors:", form.formState.errors)
 
   // 2. Define a submit handler.
-  function onSubmit(values: z.infer<typeof formSchema>) {
+  async function onSubmit(values: z.infer<typeof formSchema>) {
     console.log("Form submitted with values:", values)
     try{
       if(type === "sign-up"){
-        console.log("Creating account...")
+        const{name, email, password} = values;
+        const userCredential = await createUserWithEmailAndPassword(auth,email,password);
+        const result=await signUp({
+          uid: userCredential.user.uid,
+          name: name as string,
+          email,
+          password,
+        })
+        if(result?.success){
+          toast.success(result?.message)
+          return;
+        }
         toast.success("Account created successfully. Please sign in.")
-        setTimeout(() => {
-          router.push("/sign-in")
-        }, 1000)
+        router.push("/sign-in")
+        
       }else{ 
-        console.log("Signing in...")
+        const{ email, password} = values;
+        const userCredential = await signInWithEmailAndPassword(auth,email,password);
+        const idToken = await userCredential.user.getIdToken();
+        if(!idToken){
+          toast.error("Failed to get ID token")
+          return;
+        }
+        await signIn({
+          email, idToken
+      })
+        
         toast.success("Sign in successfully")
         setTimeout(() => {
           router.push("/")
@@ -63,10 +81,22 @@ const AuthForm = ({ type }:{type: FormType}) => {
     }
   }
 
-  function onError(errors: any) {
-    console.log("Form validation errors:", errors)
-    console.log("Error details:", Object.keys(errors).map(key => `${key}: ${errors[key]?.message}`))
-    toast.error(`Please fix the form errors: ${Object.keys(errors).join(', ')}`)
+  function onError(errors: unknown) {
+    console.log("Form validation errors:", errors);
+    if (errors && typeof errors === "object") {
+      type ErrorObject = { [key: string]: { message?: string } };
+      console.log(
+        "Error details:",
+        Object.keys(errors).map(
+          (key) => `${key}: ${(errors as ErrorObject)[key]?.message}`
+        )
+      );
+      toast.error(
+        `Please fix the form errors: ${Object.keys(errors).join(", ")}`
+      );
+    } else {
+      toast.error("Please fix the form errors.");
+    }
   }
 
   const isSignIn = type === "sign-in";
